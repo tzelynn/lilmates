@@ -1,0 +1,48 @@
+{
+  "name": "lilmate",
+  "displayName": "LilMate",
+  "description": "A cute cat companion that reacts to your typing!",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "lilmate-sidebar",
+          "title": "LilMate",
+          "icon": "assets/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "lilmate-sidebar": [
+        {
+          "type": "webview",
+          "id": "lilmate.catView",
+          "name": "Your Coding Mate"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
+    "watch": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --watch",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.0"
+  }
+}
