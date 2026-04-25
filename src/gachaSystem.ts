@@ -1,8 +1,6 @@
 import { CatAsset, GachaItem } from './types';
 import { StateManager } from './stateManager';
 
-const GACHA_COST = 100;
-
 export class GachaSystem {
   private catalogue: CatAsset[];
   private stateManager: StateManager;
@@ -10,10 +8,6 @@ export class GachaSystem {
   constructor(catalogue: CatAsset[], stateManager: StateManager) {
     this.catalogue = catalogue;
     this.stateManager = stateManager;
-  }
-
-  getCost(): number {
-    return GACHA_COST;
   }
 
   getAvailablePool(): GachaItem[] {
@@ -50,12 +44,8 @@ export class GachaSystem {
   canPull(): boolean {
     return (
       this.getAvailablePool().length > 0 &&
-      this.stateManager.getTypeCount() >= GACHA_COST
+      this.stateManager.getTypeCount() >= this.stateManager.getNextRewardAt()
     );
-  }
-
-  hasItemsLeft(): boolean {
-    return this.getAvailablePool().length > 0;
   }
 
   pull(): GachaItem | null {
@@ -66,7 +56,7 @@ export class GachaSystem {
     const pool = this.getAvailablePool();
     const item = pool[Math.floor(Math.random() * pool.length)];
 
-    this.stateManager.deductTypeCount(GACHA_COST);
+    this.stateManager.advanceNextRewardAt();
 
     if (item.itemType === 'cat') {
       this.stateManager.unlockCat(item.catId);

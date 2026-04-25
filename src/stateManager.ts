@@ -2,6 +2,14 @@ import * as vscode from 'vscode';
 import { CatAsset, LilMateState } from './types';
 
 const STATE_KEY = 'lilmate.state';
+const REWARD_INTERVAL = 100;
+
+// Migration-friendly shape: older versions stored `activeAccessories: Record<string, string[]>`.
+interface LegacyState extends Omit<LilMateState, 'activeAccessory' | 'nextRewardAt'> {
+  activeAccessory?: Record<string, string | null>;
+  activeAccessories?: Record<string, string[]>;
+  nextRewardAt?: number;
+}
 
 export class StateManager {
   private state: LilMateState;
@@ -11,17 +19,19 @@ export class StateManager {
   constructor(globalState: vscode.Memento, catalogue: CatAsset[], devMode: boolean) {
     this.globalState = globalState;
 
-    const saved = devMode ? undefined : globalState.get<LilMateState>(STATE_KEY);
+    const saved = devMode ? undefined : globalState.get<LegacyState>(STATE_KEY);
     if (saved) {
-      this.state = saved;
+      this.state = migrateState(saved);
+      this.persistImmediate();
     } else {
       const firstCat = catalogue.length > 0 ? catalogue[0].id : '';
       this.state = {
         typeCount: 0,
+        nextRewardAt: REWARD_INTERVAL,
         unlockedCats: firstCat ? [firstCat] : [],
         unlockedAccessories: {},
         activeCat: firstCat,
-        activeAccessories: {},
+        activeAccessory: {},
       };
       this.persistImmediate();
     }
@@ -40,9 +50,13 @@ export class StateManager {
     this.dirty = true;
   }
 
-  deductTypeCount(amount: number): void {
-    this.state.typeCount = Math.max(0, this.state.typeCount - amount);
-    this.dirty = true;
+  getNextRewardAt(): number {
+    return this.state.nextRewardAt;
+  }
+
+  advanceNextRewardAt(): void {
+    this.state.nextRewardAt += REWARD_INTERVAL;
+    this.persistImmediate();
   }
 
   unlockCat(catId: string): void {
@@ -67,25 +81,18 @@ export class StateManager {
     this.persistImmediate();
   }
 
-  toggleAccessory(catId: string, accessoryId: string): boolean {
-    if (!this.state.activeAccessories[catId]) {
-      this.state.activeAccessories[catId] = [];
-    }
-    const list = this.state.activeAccessories[catId];
-    const idx = list.indexOf(accessoryId);
-    if (idx >= 0) {
-      list.splice(idx, 1);
-      this.persistImmediate();
-      return false; // now inactive
+  /** Equip a specific accessory, or pass null to unequip whatever is equipped. */
+  setActiveAccessory(catId: string, accessoryId: string | null): void {
+    if (accessoryId === null) {
+      this.state.activeAccessory[catId] = null;
     } else {
-      list.push(accessoryId);
-      this.persistImmediate();
-      return true; // now active
+      this.state.activeAccessory[catId] = accessoryId;
     }
+    this.persistImmediate();
   }
 
-  getActiveAccessories(catId: string): string[] {
-    return this.state.activeAccessories[catId] || [];
+  getActiveAccessory(catId: string): string | null {
+    return this.state.activeAccessory[catId] ?? null;
   }
 
   isUnlockedCat(catId: string): boolean {
@@ -107,4 +114,32 @@ export class StateManager {
   private persistImmediate(): void {
     this.globalState.update(STATE_KEY, this.state);
   }
+}
+
+function migrateState(saved: LegacyState): LilMateState {
+  const activeAccessory: Record<string, string | null> = {};
+  if (saved.activeAccessory) {
+    for (const [catId, val] of Object.entries(saved.activeAccessory)) {
+      activeAccessory[catId] = val ?? null;
+    }
+  } else if (saved.activeAccessories) {
+    for (const [catId, list] of Object.entries(saved.activeAccessories)) {
+      activeAccessory[catId] = list && list.length > 0 ? list[0] : null;
+    }
+  }
+
+  const typeCount = saved.typeCount ?? 0;
+  // For existing installs upgrading to the monotonic counter, pick the next
+  // threshold above the current count so no stale rewards fire immediately.
+  const nextRewardAt =
+    saved.nextRewardAt ?? Math.floor(typeCount / REWARD_INTERVAL) * REWARD_INTERVAL + REWARD_INTERVAL;
+
+  return {
+    typeCount,
+    nextRewardAt,
+    unlockedCats: saved.unlockedCats ?? [],
+    unlockedAccessories: saved.unlockedAccessories ?? {},
+    activeCat: saved.activeCat ?? '',
+    activeAccessory,
+  };
 }

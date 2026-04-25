@@ -10,27 +10,29 @@
   let catalogue = [];
   let state = null;
   let currentFrameUris = [];
+  /** @type {{id: string, frameUris: string[]}[]} */
   let currentAccessoryUris = [];
-  let gachaCost = 100;
-  let canPull = false;
-  let hasItemsLeft = true;
   let idleTimer = null;
   const IDLE_TIMEOUT_MS = 3000;
 
   // --- DOM refs ---
   const catContainer = document.getElementById('cat-container');
   const typeCountEl = document.getElementById('type-count');
-  const gachaBtn = document.getElementById('gacha-btn');
   const collectionBtn = document.getElementById('collection-btn');
   const collectionPanel = document.getElementById('collection-panel');
   const closeCollectionBtn = document.getElementById('close-collection');
+  const collectionBackBtn = document.getElementById('collection-back');
+  const collectionTitle = document.getElementById('collection-title');
   const collectionContent = document.getElementById('collection-content');
   const collectionProgress = document.getElementById('collection-progress');
   const gachaOverlay = document.getElementById('gacha-overlay');
-  const gachaResultEmoji = document.getElementById('gacha-result-emoji');
-  const gachaResultLabel = document.getElementById('gacha-result-label');
+  const gachaResultBanner = document.getElementById('gacha-result-banner');
+  const gachaResultArt = document.getElementById('gacha-result-art');
   const gachaResultName = document.getElementById('gacha-result-name');
   const gachaCloseBtn = document.getElementById('gacha-close');
+
+  /** @type {{mode: 'cats'} | {mode: 'accessories', catId: string}} */
+  let collectionView = { mode: 'cats' };
 
   // --- Image preloading ---
   const imageCache = new Map();
@@ -42,22 +44,30 @@
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = resolve;
-      img.onerror = resolve; // don't block on failure
+      img.onerror = resolve;
       img.src = uri;
       imageCache.set(uri, img);
     });
   }
 
   async function preloadAll(frameUris, accessoryUris) {
-    const uris = [...frameUris, ...accessoryUris.map((a) => a.uri)];
+    const uris = [...frameUris];
+    for (const acs of accessoryUris) {
+      uris.push(...acs.frameUris);
+    }
     await Promise.all(uris.map(preloadImage));
+  }
+
+  function getActiveAccessoryId() {
+    if (!state) {return null;}
+    return state.activeAccessory[state.activeCat] ?? null;
   }
 
   // --- Rendering ---
   function renderCat() {
     catContainer.innerHTML = '';
 
-    // Add frame images
+    // Cat frames
     currentFrameUris.forEach((uri, i) => {
       const img = document.createElement('img');
       img.className = 'cat-frame' + (i === PING_PONG[frameIndex] ? ' active' : '');
@@ -67,22 +77,30 @@
       catContainer.appendChild(img);
     });
 
-    // Add accessory overlays
-    const activeAcs = state ? (state.activeAccessories[state.activeCat] || []) : [];
-    currentAccessoryUris.forEach((acs) => {
-      const img = document.createElement('img');
-      img.className = 'accessory-overlay' + (activeAcs.includes(acs.id) ? '' : ' hidden');
-      img.src = acs.uri;
-      img.draggable = false;
-      img.dataset.accessoryId = acs.id;
-      catContainer.appendChild(img);
-    });
+    // Accessory frames (only the equipped one, one <img> per frame)
+    const equippedId = getActiveAccessoryId();
+    if (equippedId) {
+      const acs = currentAccessoryUris.find((a) => a.id === equippedId);
+      if (acs) {
+        acs.frameUris.forEach((uri, i) => {
+          const img = document.createElement('img');
+          img.className =
+            'accessory-frame' + (i === PING_PONG[frameIndex] ? ' active' : '');
+          img.src = uri;
+          img.draggable = false;
+          img.dataset.frameIndex = String(i);
+          img.dataset.accessoryId = equippedId;
+          catContainer.appendChild(img);
+        });
+      }
+    }
   }
 
   function showFrame(index) {
-    const frames = catContainer.querySelectorAll('.cat-frame');
-    frames.forEach((f, i) => {
-      f.classList.toggle('active', i === index);
+    const nodes = catContainer.querySelectorAll('.cat-frame, .accessory-frame');
+    nodes.forEach((el) => {
+      const i = Number(el.dataset.frameIndex);
+      el.classList.toggle('active', i === index);
     });
   }
 
@@ -97,7 +115,6 @@
       clearTimeout(idleTimer);
     }
     idleTimer = setTimeout(() => {
-      // Return to frame 0 (resting pose)
       frameIndex = 0;
       showFrame(PING_PONG[0]);
     }, IDLE_TIMEOUT_MS);
@@ -106,20 +123,32 @@
   // --- Controls ---
   function updateControls() {
     typeCountEl.textContent = state ? String(state.typeCount) : '0';
-    gachaBtn.textContent = `🎲 Gacha! (${gachaCost})`;
-    gachaBtn.disabled = !canPull;
-    if (!hasItemsLeft) {
-      gachaBtn.textContent = '✅ All collected!';
-      gachaBtn.disabled = true;
-    }
   }
 
   // --- Collection ---
   function renderCollection() {
     if (!state || !catalogue.length) {return;}
-    collectionContent.innerHTML = '';
 
-    // Calculate and show progress
+    // If we're in accessory view but the cat is no longer unlocked, bounce out.
+    if (collectionView.mode === 'accessories') {
+      const cat = catalogue.find((c) => c.id === collectionView.catId);
+      if (!cat || !state.unlockedCats.includes(cat.id)) {
+        collectionView = { mode: 'cats' };
+      }
+    }
+
+    if (collectionView.mode === 'cats') {
+      renderCatList();
+    } else {
+      renderAccessoryView(collectionView.catId);
+    }
+  }
+
+  function renderCatList() {
+    collectionContent.innerHTML = '';
+    collectionBackBtn.classList.add('hidden');
+    collectionTitle.textContent = 'Collection';
+
     const totalCats = catalogue.length;
     const unlockedCatCount = state.unlockedCats.length;
     const totalAcs = catalogue.reduce((sum, c) => sum + c.accessories.length, 0);
@@ -138,25 +167,18 @@
         (isActive ? ' active' : '') +
         (isUnlocked ? '' : ' locked');
 
-      // Cat header (clickable to select)
       const header = document.createElement('div');
       header.className = 'collection-cat-header' +
         (isUnlocked ? '' : ' locked');
 
-      // Thumbnail
       const thumb = document.createElement('img');
       thumb.className = 'cat-thumb' + (isUnlocked ? '' : ' locked');
-      if (isUnlocked) {
-        // Use the first frame URI from catalogue
-        const catAsset = catalogue.find((c) => c.id === cat.id);
-        if (catAsset && catAsset.thumbUri) {
-          thumb.src = catAsset.thumbUri;
-        }
+      if (isUnlocked && cat.thumbUri) {
+        thumb.src = cat.thumbUri;
       }
       thumb.draggable = false;
       header.appendChild(thumb);
 
-      // Info column
       const info = document.createElement('div');
       info.className = 'cat-header-info';
 
@@ -185,67 +207,187 @@
 
       header.appendChild(info);
 
-      if (isUnlocked && !isActive) {
+      if (isUnlocked && cat.accessories.length > 0) {
+        const chevron = document.createElement('span');
+        chevron.className = 'cat-chevron';
+        chevron.textContent = '›';
+        header.appendChild(chevron);
+      }
+
+      if (isUnlocked) {
         header.addEventListener('click', () => {
-          vscode.postMessage({ type: 'select-cat', catId: cat.id });
+          if (!isActive) {
+            vscode.postMessage({ type: 'select-cat', catId: cat.id });
+          }
+          if (cat.accessories.length > 0) {
+            collectionView = { mode: 'accessories', catId: cat.id };
+            renderCollection();
+          }
         });
       }
 
       catDiv.appendChild(header);
-
-      // Accessories (only show for unlocked cats)
-      if (isUnlocked && cat.accessories.length > 0) {
-        const acsList = document.createElement('div');
-        acsList.className = 'accessory-list';
-
-        cat.accessories.forEach((acs) => {
-          const acsUnlocked = state.unlockedAccessories[cat.id]?.includes(acs.id);
-          const acsActive = state.activeAccessories[cat.id]?.includes(acs.id);
-
-          const item = document.createElement('div');
-          item.className = 'accessory-item' + (acsUnlocked ? '' : ' locked');
-
-          const toggle = document.createElement('input');
-          toggle.type = 'checkbox';
-          toggle.className = 'accessory-toggle';
-          toggle.checked = !!acsActive;
-          toggle.disabled = !acsUnlocked;
-          toggle.addEventListener('change', () => {
-            vscode.postMessage({
-              type: 'toggle-accessory',
-              catId: cat.id,
-              accessoryId: acs.id,
-            });
-          });
-
-          const label = document.createElement('span');
-          label.className = 'accessory-name';
-          label.textContent = acsUnlocked ? acs.displayName : '???';
-
-          item.appendChild(toggle);
-          item.appendChild(label);
-          acsList.appendChild(item);
-        });
-
-        catDiv.appendChild(acsList);
-      }
-
       collectionContent.appendChild(catDiv);
     });
   }
 
-  // --- Event listeners ---
-  gachaBtn.addEventListener('click', () => {
-    vscode.postMessage({ type: 'gacha-pull' });
-  });
+  function renderAccessoryView(catId) {
+    collectionContent.innerHTML = '';
+    const cat = catalogue.find((c) => c.id === catId);
+    if (!cat) {
+      collectionView = { mode: 'cats' };
+      renderCatList();
+      return;
+    }
 
+    collectionBackBtn.classList.remove('hidden');
+    collectionTitle.textContent = cat.displayName;
+
+    const totalAcs = cat.accessories.length;
+    const unlockedAcs = state.unlockedAccessories[cat.id]?.length || 0;
+    collectionProgress.textContent = totalAcs
+      ? `${unlockedAcs} / ${totalAcs} accessories`
+      : 'No accessories';
+
+    const equippedForCat = state.activeAccessory[cat.id] ?? null;
+
+    const grid = document.createElement('div');
+    grid.className = 'accessory-grid';
+
+    grid.appendChild(buildAccessoryTile({
+      cat,
+      id: null,
+      displayName: 'None',
+      thumbUri: null,
+      unlocked: true,
+      active: equippedForCat === null,
+      isNone: true,
+    }));
+
+    cat.accessories.forEach((acs) => {
+      const acsUnlocked = !!state.unlockedAccessories[cat.id]?.includes(acs.id);
+      grid.appendChild(buildAccessoryTile({
+        cat,
+        id: acs.id,
+        displayName: acs.displayName,
+        thumbUri: acs.thumbUri,
+        thumbSvg: acs.thumbSvg,
+        unlocked: acsUnlocked,
+        active: equippedForCat === acs.id,
+        isNone: false,
+      }));
+    });
+
+    collectionContent.appendChild(grid);
+  }
+
+  function zoomSvgToContent(svgEl) {
+    // Defer until attached + laid out so getBBox returns real geometry.
+    requestAnimationFrame(() => {
+      try {
+        const bbox = svgEl.getBBox();
+        if (!bbox || bbox.width <= 0 || bbox.height <= 0) {return;}
+        const pad = Math.max(bbox.width, bbox.height) * 0.12;
+        const side = Math.max(bbox.width, bbox.height) + pad * 2;
+        const cx = bbox.x + bbox.width / 2;
+        const cy = bbox.y + bbox.height / 2;
+        const vx = cx - side / 2;
+        const vy = cy - side / 2;
+        svgEl.setAttribute('viewBox', `${vx} ${vy} ${side} ${side}`);
+      } catch {
+        // Ignore; fallback is the original SVG rendering.
+      }
+    });
+  }
+
+  function buildAccessoryTile({ cat, id, displayName, thumbUri, thumbSvg, unlocked, active, isNone }) {
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'accessory-tile' +
+      (active ? ' active' : '') +
+      (unlocked ? '' : ' locked');
+    tile.disabled = !unlocked;
+
+    const thumbWrap = document.createElement('div');
+    thumbWrap.className = 'accessory-thumb-wrap' + (unlocked ? '' : ' locked');
+    if (isNone) {
+      const noneMark = document.createElement('span');
+      noneMark.className = 'accessory-thumb-none';
+      noneMark.textContent = '∅';
+      thumbWrap.appendChild(noneMark);
+    } else if (unlocked && thumbSvg) {
+      const svgHolder = document.createElement('div');
+      svgHolder.className = 'accessory-thumb';
+      svgHolder.innerHTML = thumbSvg;
+      const svgEl = svgHolder.querySelector('svg');
+      if (svgEl) {
+        svgEl.classList.add('accessory-thumb-svg');
+        svgEl.removeAttribute('width');
+        svgEl.removeAttribute('height');
+        svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        zoomSvgToContent(svgEl);
+      }
+      thumbWrap.appendChild(svgHolder);
+    } else if (unlocked && thumbUri) {
+      const img = document.createElement('img');
+      img.className = 'accessory-thumb';
+      img.src = thumbUri;
+      img.draggable = false;
+      thumbWrap.appendChild(img);
+    } else {
+      const lock = document.createElement('span');
+      lock.className = 'accessory-thumb-lock';
+      lock.textContent = '🔒';
+      thumbWrap.appendChild(lock);
+    }
+    tile.appendChild(thumbWrap);
+
+    const label = document.createElement('span');
+    label.className = 'accessory-tile-name';
+    label.textContent = unlocked ? displayName : '???';
+    tile.appendChild(label);
+
+    if (active) {
+      const badge = document.createElement('span');
+      badge.className = 'accessory-tile-badge';
+      badge.textContent = 'Equipped';
+      tile.appendChild(badge);
+    }
+
+    tile.addEventListener('click', () => {
+      if (!unlocked) {return;}
+      if (active && !isNone) {
+        vscode.postMessage({
+          type: 'set-accessory',
+          catId: cat.id,
+          accessoryId: null,
+        });
+      } else {
+        vscode.postMessage({
+          type: 'set-accessory',
+          catId: cat.id,
+          accessoryId: isNone ? null : id,
+        });
+      }
+    });
+
+    return tile;
+  }
+
+  // --- Event listeners ---
   collectionBtn.addEventListener('click', () => {
+    collectionView = { mode: 'cats' };
     renderCollection();
     collectionPanel.classList.remove('hidden');
   });
 
   closeCollectionBtn.addEventListener('click', () => {
     collectionPanel.classList.add('hidden');
+  });
+
+  collectionBackBtn.addEventListener('click', () => {
+    collectionView = { mode: 'cats' };
+    renderCollection();
   });
 
   gachaCloseBtn.addEventListener('click', () => {
@@ -260,11 +402,9 @@
       case 'init': {
         catalogue = message.catalogue;
         state = message.state;
+        if (!state.activeAccessory) {state.activeAccessory = {};}
         currentFrameUris = message.frameUris;
         currentAccessoryUris = message.accessoryUris;
-        gachaCost = message.gachaCost;
-        canPull = message.canPull;
-        hasItemsLeft = message.hasItemsLeft;
         frameIndex = 0;
 
         preloadAll(currentFrameUris, currentAccessoryUris).then(() => {
@@ -283,7 +423,6 @@
         if (state) {
           state.typeCount = message.typeCount;
         }
-        canPull = message.canPull;
         updateControls();
         break;
       }
@@ -301,12 +440,23 @@
             state.unlockedAccessories[item.catId].push(item.accessoryId);
           }
         }
-        canPull = message.canPull;
-        hasItemsLeft = message.hasItemsLeft;
 
-        // Show result
-        gachaResultEmoji.textContent = item.itemType === 'cat' ? '🐱' : '✨';
-        gachaResultLabel.textContent = item.itemType === 'cat' ? 'New cat!' : 'New accessory!';
+        gachaResultBanner.textContent = item.itemType === 'cat' ? 'NEW MATE!' : 'NEW ITEM!';
+        gachaResultArt.innerHTML = '';
+        if (message.catFrameUri) {
+          const catImg = document.createElement('img');
+          catImg.className = 'gacha-result-cat-frame';
+          catImg.src = message.catFrameUri;
+          catImg.draggable = false;
+          gachaResultArt.appendChild(catImg);
+        }
+        if (message.accessoryFrameUri) {
+          const acsImg = document.createElement('img');
+          acsImg.className = 'gacha-result-accessory-frame';
+          acsImg.src = message.accessoryFrameUri;
+          acsImg.draggable = false;
+          gachaResultArt.appendChild(acsImg);
+        }
         gachaResultName.textContent = item.displayName;
         gachaOverlay.classList.remove('hidden');
 
@@ -317,19 +467,16 @@
       case 'switch-cat': {
         if (state) {
           state.activeCat = message.catId;
+          state.activeAccessory[message.catId] = message.activeAccessory ?? null;
         }
         currentFrameUris = message.frameUris;
         currentAccessoryUris = message.accessoryUris;
-        if (state) {
-          state.activeAccessories[message.catId] = message.activeAccessories;
-        }
         frameIndex = 0;
 
         preloadAll(currentFrameUris, currentAccessoryUris).then(() => {
           renderCat();
         });
 
-        // Re-render collection to update active state
         if (!collectionPanel.classList.contains('hidden')) {
           renderCollection();
         }
@@ -338,6 +485,5 @@
     }
   });
 
-  // Signal ready
   vscode.postMessage({ type: 'webview-ready' });
 })();

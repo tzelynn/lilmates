@@ -1,3 +1,10 @@
+:root {
+  --lm-warm: #ffb86b;
+  --lm-cool: #7fd4cf;
+  --lm-pink: #ffb5d9;
+  --lm-yellow: #ffd93d;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -16,13 +23,13 @@ body {
   height: 100vh;
 }
 
-/* Cat display area */
+/* Cat display area -- takes maximum space */
 #cat-display {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
+  padding: 6px;
   min-height: 0;
 }
 
@@ -35,7 +42,7 @@ body {
 }
 
 .cat-frame,
-.accessory-overlay {
+.accessory-frame {
   position: absolute;
   top: 0;
   left: 0;
@@ -43,101 +50,107 @@ body {
   height: 100%;
   object-fit: contain;
   will-change: visibility;
-}
-
-.cat-frame {
   visibility: hidden;
 }
 
-.cat-frame.active {
+.cat-frame.active,
+.accessory-frame.active {
   visibility: visible;
 }
 
-.accessory-overlay {
+.accessory-frame {
   pointer-events: none;
 }
 
-.accessory-overlay.hidden {
-  visibility: hidden;
-}
-
-/* Meow counter bar */
-#meow-bar {
+/* Bottom tabs -- rectangular rounded buttons */
+#bottom-tabs {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 10px;
-  margin: 0 8px;
-  border-radius: 6px;
-  background: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
-  flex-shrink: 0;
-}
-
-#meow-icon {
-  font-size: 12px;
-}
-
-#type-count {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--vscode-textLink-foreground) !important;
-  font-variant-numeric: tabular-nums;
-}
-
-#meow-label {
-  font-size: 12px;
-  opacity: 0.7;
-}
-
-/* Controls */
-#controls {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  gap: 8px;
   padding: 8px;
   flex-shrink: 0;
 }
 
-#controls button {
-  flex: 1;
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-  border: none;
-  padding: 8px 10px;
-  font-size: 12px;
-  font-weight: 600;
+.bottom-tab {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  border: 2px solid var(--vscode-panel-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  min-height: 40px;
+  font: inherit;
+  font-size: 11px;
   cursor: pointer;
-  border-radius: 6px;
-  white-space: nowrap;
-  transition: background 0.15s, transform 0.1s, opacity 0.15s;
+  transition: background 0.15s, transform 0.1s, border-color 0.15s;
 }
 
-#controls button:hover:not(:disabled) {
-  background: var(--vscode-button-hoverBackground);
-  transform: translateY(-1px);
+button.bottom-tab {
+  font-family: inherit;
 }
 
-#controls button:active:not(:disabled) {
-  transform: translateY(0);
+.bottom-tab:hover {
+  background: var(--vscode-list-hoverBackground);
 }
 
-#controls button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+#count-tab {
+  cursor: default;
+  flex: 1;
+  min-width: 0;
+  border-color: var(--lm-warm);
+}
+
+#count-tab:hover {
+  background: var(--vscode-editor-background);
+  border-color: var(--lm-warm);
 }
 
 #collection-btn {
-  background: var(--vscode-button-secondaryBackground) !important;
-  color: var(--vscode-button-secondaryForeground) !important;
+  border-color: var(--lm-cool);
+  min-width: 44px;
 }
 
 #collection-btn:hover {
-  background: var(--vscode-button-secondaryHoverBackground) !important;
+  background: rgba(127, 212, 207, 0.12);
+  border-color: var(--lm-cool);
+  transform: translateY(-1px);
 }
 
-/* Collection panel */
+.bottom-tab-svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.bottom-tab-svg-paw {
+  fill: var(--lm-warm);
+}
+
+.bottom-tab-svg-grid {
+  fill: none;
+  stroke: var(--lm-cool);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+
+.bottom-tab-svg-grid .filled {
+  fill: var(--lm-cool);
+}
+
+.bottom-tab-value {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--lm-warm) !important;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* Collection panel -- sticker-album vibe */
 #collection-panel {
   position: absolute;
   top: 0;
@@ -148,7 +161,7 @@ body {
   z-index: 10;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 #collection-panel.hidden {
@@ -157,74 +170,154 @@ body {
 
 .collection-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--vscode-panel-border);
+  gap: 10px;
+  padding: 12px 14px;
   background: var(--vscode-editor-background);
+  border-bottom: 2px solid var(--lm-pink);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.collection-header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.collection-header-icon svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: var(--lm-pink);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .collection-header-left {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
 }
 
 .collection-header h3 {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--vscode-foreground);
+  letter-spacing: 0.3px;
 }
 
 .collection-progress {
   font-size: 10px;
   color: var(--vscode-descriptionForeground);
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
+  font-weight: 600;
 }
 
-.collection-header button {
-  background: none;
+#close-collection {
+  background: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.08));
   border: none;
   color: var(--vscode-foreground) !important;
-  font-size: 18px;
+  font-size: 16px;
+  line-height: 1;
   cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 4px;
-  transition: background 0.15s;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.15s;
 }
 
-.collection-header button:hover {
-  background: var(--vscode-toolbar-hoverBackground);
+#close-collection:hover {
+  background: var(--vscode-list-hoverBackground);
+  transform: rotate(90deg);
+}
+
+.collection-back {
+  background: transparent;
+  border: 2px solid var(--lm-cool);
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.collection-back svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--lm-cool);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.collection-back:hover {
+  background: rgba(127, 212, 207, 0.15);
+  transform: translateX(-1px);
+}
+
+.collection-back.hidden {
+  display: none;
 }
 
 #collection-content {
-  padding: 8px;
+  padding: 10px;
   overflow-y: auto;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .collection-cat {
-  margin-bottom: 6px;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
+  border: 2px solid var(--vscode-panel-border);
   overflow: hidden;
-  transition: border-color 0.15s;
+  position: relative;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
 }
 
 .collection-cat.active {
   border-color: var(--vscode-textLink-foreground);
+  box-shadow: 0 0 0 1px var(--vscode-textLink-foreground),
+    0 4px 16px rgba(120, 180, 255, 0.18);
+}
+
+.collection-cat.active::after {
+  content: '★';
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 13px;
+  color: var(--vscode-textLink-foreground);
+  filter: drop-shadow(0 0 4px rgba(120, 180, 255, 0.6));
+  pointer-events: none;
 }
 
 .collection-cat.locked {
-  opacity: 0.5;
+  opacity: 0.55;
 }
 
 .collection-cat-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 12px;
+  padding: 10px 12px;
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -238,16 +331,23 @@ body {
 }
 
 .cat-thumb {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--vscode-sideBar-background);
+  border: 2px solid var(--vscode-panel-border);
   flex-shrink: 0;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.collection-cat.active .cat-thumb {
+  border-color: var(--vscode-textLink-foreground);
+  transform: scale(1.05);
 }
 
 .cat-thumb.locked {
-  filter: brightness(0.3) saturate(0);
+  filter: brightness(0.25) saturate(0);
 }
 
 .cat-header-info {
@@ -259,9 +359,10 @@ body {
 }
 
 .collection-cat-name {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--vscode-foreground);
+  letter-spacing: 0.2px;
 }
 
 .active .collection-cat-name {
@@ -271,72 +372,170 @@ body {
 .cat-badge {
   font-size: 10px;
   color: var(--vscode-descriptionForeground);
+  font-weight: 600;
 }
 
 .active-indicator {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--vscode-textLink-foreground) !important;
-  font-weight: 600;
-  letter-spacing: 0.3px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
 }
 
-.accessory-list {
-  padding: 0 10px 8px 56px;
+.cat-chevron {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--vscode-descriptionForeground);
+  font-weight: 400;
+  flex-shrink: 0;
+  padding-right: 2px;
+  transition: transform 0.15s, color 0.15s;
+}
+
+.collection-cat-header:hover:not(.locked) .cat-chevron {
+  color: var(--vscode-textLink-foreground);
+  transform: translateX(2px);
+}
+
+/* Accessory grid -- 2-column tile layout */
+.accessory-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 2px;
+}
+
+.accessory-tile {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px;
+  background: var(--vscode-editor-background);
+  border: 2px solid var(--vscode-panel-border);
+  border-radius: 14px;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font: inherit;
+  text-align: center;
+  position: relative;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
 }
 
-.accessory-item {
+button.accessory-tile {
+  font-family: inherit;
+}
+
+.accessory-tile:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground);
+  border-color: var(--vscode-textLink-foreground);
+  transform: translateY(-1px);
+}
+
+.accessory-tile:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.accessory-tile.active {
+  border-color: var(--vscode-textLink-foreground);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(120, 180, 255, 0.15), transparent 60%),
+    var(--vscode-editor-background);
+  box-shadow: 0 0 0 1px var(--vscode-textLink-foreground),
+    0 4px 14px rgba(120, 180, 255, 0.2);
+}
+
+.accessory-tile.active::after {
+  content: '★';
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 12px;
+  color: var(--vscode-textLink-foreground);
+  filter: drop-shadow(0 0 4px rgba(120, 180, 255, 0.6));
+}
+
+.accessory-thumb-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: var(--vscode-sideBar-background);
+  border: 2px solid var(--vscode-panel-border);
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  font-size: 11px;
-  border-radius: 4px;
-  color: var(--vscode-foreground);
-  transition: background 0.15s;
-}
-
-.accessory-item:hover:not(.locked) {
-  background: var(--vscode-list-hoverBackground);
-}
-
-.accessory-item.locked {
-  color: var(--vscode-disabledForeground);
-}
-
-.accessory-toggle {
-  width: 14px;
-  height: 14px;
-  cursor: pointer;
-  accent-color: var(--vscode-textLink-foreground);
+  justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
-.accessory-toggle:disabled {
-  cursor: not-allowed;
+.accessory-tile.active .accessory-thumb-wrap {
+  border-color: var(--vscode-textLink-foreground);
 }
 
-.accessory-name {
-  flex: 1;
-  min-width: 0;
+.accessory-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
-/* Gacha overlay */
+.accessory-thumb-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.accessory-thumb-none {
+  font-size: 24px;
+  color: var(--vscode-descriptionForeground);
+  font-weight: 400;
+  line-height: 1;
+}
+
+.accessory-thumb-lock {
+  font-size: 20px;
+  opacity: 0.6;
+}
+
+.accessory-tile-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.accessory-tile.active .accessory-tile-name {
+  color: var(--vscode-textLink-foreground);
+}
+
+.accessory-tile-badge {
+  font-size: 8px;
+  font-weight: 800;
+  color: var(--vscode-textLink-foreground);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+/* Gacha overlay -- game-like popup */
 #gacha-overlay {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.65);
+  background: radial-gradient(
+    circle at center,
+    rgba(20, 30, 50, 0.55),
+    rgba(0, 0, 0, 0.85)
+  );
   z-index: 20;
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
 }
 
 #gacha-overlay.hidden {
@@ -344,56 +543,173 @@ body {
 }
 
 #gacha-result-card {
-  background: var(--vscode-editor-background);
-  border: 2px solid var(--vscode-textLink-foreground);
-  border-radius: 12px;
-  padding: 24px 28px;
+  position: relative;
+  width: 240px;
+  height: 240px;
+  background:
+    radial-gradient(
+      circle at 50% 30%,
+      rgba(255, 184, 107, 0.14),
+      transparent 60%
+    ),
+    var(--vscode-editor-background);
+  border: 3px solid var(--lm-warm);
+  border-radius: 16px;
+  padding: 14px;
   text-align: center;
-  max-width: 80%;
-  min-width: 160px;
-  animation: gacha-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  animation: gacha-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow:
+    0 0 32px rgba(255, 184, 107, 0.22),
+    0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+#gacha-result-card::before,
+#gacha-result-card::after {
+  content: '🐾';
+  position: absolute;
+  font-size: 16px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+#gacha-result-card::before {
+  bottom: 8px;
+  left: 10px;
+  transform: rotate(-18deg);
+}
+
+#gacha-result-card::after {
+  bottom: 10px;
+  right: 12px;
+  transform: rotate(14deg);
 }
 
 @keyframes gacha-pop {
   0% { transform: scale(0.3) rotate(-8deg); opacity: 0; }
-  60% { transform: scale(1.05) rotate(1deg); opacity: 1; }
+  60% { transform: scale(1.08) rotate(1deg); opacity: 1; }
   100% { transform: scale(1) rotate(0); opacity: 1; }
 }
 
-#gacha-result-emoji {
-  font-size: 36px;
-  margin-bottom: 8px;
+#gacha-result-banner {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--lm-warm), var(--lm-yellow));
+  color: #3a2410;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.6px;
+  box-shadow: 0 3px 10px rgba(255, 180, 70, 0.45);
+  animation: banner-bounce 2s ease-in-out infinite;
 }
 
-#gacha-result-label {
-  font-size: 11px;
-  opacity: 0.6;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 4px;
+@keyframes banner-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+#gacha-result-art-wrap {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#gacha-result-art-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 215, 100, 0.28),
+    transparent 65%
+  );
+  animation: glow-pulse 1.8s ease-in-out infinite;
+}
+
+#gacha-result-art {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--vscode-sideBar-background);
+  border: 2.5px solid var(--lm-warm);
+  border-radius: 50%;
+  padding: 10px;
+  box-sizing: border-box;
+  animation: doodle-bob 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 4px 10px rgba(255, 184, 107, 0.3));
+}
+
+.gacha-result-cat-frame,
+.gacha-result-accessory-frame {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  width: calc(100% - 20px);
+  height: calc(100% - 20px);
+  object-fit: contain;
+}
+
+.gacha-result-accessory-frame {
+  pointer-events: none;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+@keyframes doodle-bob {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50% { transform: translateY(-4px) rotate(1.5deg); }
 }
 
 #gacha-result-name {
   font-size: 16px;
-  font-weight: 700;
-  color: var(--vscode-textLink-foreground) !important;
-  margin-bottom: 16px;
+  font-weight: 800;
+  color: var(--lm-warm) !important;
+  letter-spacing: 0.3px;
+  padding: 0 4px;
 }
 
 #gacha-close {
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-  border: none;
-  padding: 8px 24px;
-  font-size: 12px;
-  font-weight: 600;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid var(--lm-warm);
+  border-radius: 50%;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground) !important;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.15s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.15s;
+  z-index: 1;
 }
 
 #gacha-close:hover {
-  background: var(--vscode-button-hoverBackground);
-  transform: translateY(-1px);
+  background: rgba(255, 184, 107, 0.18);
+  transform: rotate(90deg);
 }

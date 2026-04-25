@@ -32,7 +32,7 @@ export function activate(context: vscode.ExtensionContext) {
       // Each text change event = 1 type count (paste/AI counts as just 1)
       stateManager.incrementTypeCount(1);
       catViewProvider.advanceFrame();
-      catViewProvider.sendTypeCountUpdate();
+      catViewProvider.handleTypeCountChanged();
     })
   );
 

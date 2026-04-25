@@ -3,6 +3,16 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { CatAsset, CatAccessory } from './types';
 
+const FRAME_FILE_NAMES = ['1.svg', '2.svg', '3.svg'];
+
+function titleCase(id: string): string {
+  return id
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ');
+}
+
 export function discoverAssets(extensionUri: vscode.Uri): CatAsset[] {
   const matesDir = path.join(extensionUri.fsPath, 'assets', 'mates');
 
@@ -21,34 +31,43 @@ export function discoverAssets(extensionUri: vscode.Uri): CatAsset[] {
     const catDir = path.join(matesDir, entry.name);
     const catFiles = fs.readdirSync(catDir);
 
-    // Check that all 3 frames exist
-    const frameFileNames = ['1.PNG', '2.PNG', '3.PNG'];
-    const hasAllFrames = frameFileNames.every((f) => catFiles.includes(f));
+    // Require all 3 cat frames as SVG
+    const hasAllFrames = FRAME_FILE_NAMES.every((f) => catFiles.includes(f));
     if (!hasAllFrames) {
       continue;
     }
 
-    // Discover accessories: files matching acs_*.PNG
-    const accessories: CatAccessory[] = catFiles
-      .filter((f: string) => f.startsWith('acs_') && f.endsWith('.PNG'))
-      .map((f: string) => {
-        const id = f.replace('acs_', '').replace('.PNG', '');
-        return {
-          id,
-          displayName: id.charAt(0).toUpperCase() + id.slice(1),
-          fileName: f,
-        };
-      });
+    const accessories: CatAccessory[] = [];
+    const acsDir = path.join(catDir, 'acs');
+    if (fs.existsSync(acsDir) && fs.statSync(acsDir).isDirectory()) {
+      const acsEntries = fs.readdirSync(acsDir, { withFileTypes: true });
+      for (const acsEntry of acsEntries) {
+        if (!acsEntry.isDirectory()) {
+          continue;
+        }
+        const acsSubDir = path.join(acsDir, acsEntry.name);
+        const acsFiles = fs.readdirSync(acsSubDir);
+        const acsHasAllFrames = FRAME_FILE_NAMES.every((f) => acsFiles.includes(f));
+        if (!acsHasAllFrames) {
+          continue;
+        }
+        accessories.push({
+          id: acsEntry.name,
+          displayName: titleCase(acsEntry.name),
+          frameFileNames: [...FRAME_FILE_NAMES],
+        });
+      }
+      accessories.sort((a, b) => a.id.localeCompare(b.id));
+    }
 
     cats.push({
       id: entry.name,
-      displayName: entry.name.charAt(0).toUpperCase() + entry.name.slice(1),
-      frameFileNames,
+      displayName: titleCase(entry.name),
+      frameFileNames: [...FRAME_FILE_NAMES],
       accessories,
     });
   }
 
-  // Sort alphabetically for consistent ordering
   cats.sort((a, b) => a.id.localeCompare(b.id));
   return cats;
 }
