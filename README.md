@@ -44,14 +44,23 @@ npm run lint
 
 ## Adding new cats
 
+### Obtaining the SVGs from PNGs
+
+1. Save each animal and hat frame separate (3 each, 6 in total for a single gif)
+2. Upload png to https://tosvg.com/
+3. Resize to 512 x 512 and export as .svg file
+
+
 Place a new folder under `assets/mates/<cat-name>/` with:
 
 | File | Purpose |
 |------|---------|
-| `1.PNG` | Frame 1 (resting pose) |
-| `2.PNG` | Frame 2 |
-| `3.PNG` | Frame 3 |
-| `acs_<name>.PNG` | Optional accessory overlay |
+| `1.SVG` | Frame 1 |
+| `2.SVG` | Frame 2 |
+| `3.SVG` | Frame 3 |
+| `asc/<asc_name>/1.SVG` | Optional accessory overlay |
+| `asc/<asc_name>/2.SVG` | Optional accessory overlay |
+| `asc/<asc_name>/3.SVG` | Optional accessory overlay |
 
 The extension auto-discovers all cat folders at startup. The folder name becomes the cat's ID and display name (capitalized).
 
