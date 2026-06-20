@@ -42,18 +42,24 @@ export class GachaSystem {
   }
 
   canPull(): boolean {
+    // Cheap integer threshold check first so the expensive pool build is
+    // short-circuited on the vast majority of keystrokes. nextRewardAt is
+    // monotonic, so this gate is sound.
     return (
-      this.getAvailablePool().length > 0 &&
-      this.stateManager.getTypeCount() >= this.stateManager.getNextRewardAt()
+      this.stateManager.getTypeCount() >= this.stateManager.getNextRewardAt() &&
+      this.getAvailablePool().length > 0
     );
   }
 
   pull(): GachaItem | null {
-    if (!this.canPull()) {
+    if (this.stateManager.getTypeCount() < this.stateManager.getNextRewardAt()) {
       return null;
     }
 
     const pool = this.getAvailablePool();
+    if (pool.length === 0) {
+      return null;
+    }
     const item = pool[Math.floor(Math.random() * pool.length)];
 
     this.stateManager.advanceNextRewardAt();

@@ -15,6 +15,14 @@
   let idleTimer = null;
   const IDLE_TIMEOUT_MS = 3000;
 
+  // Cached frame <img> nodes (index-addressable) so the per-keystroke frame
+  // swap toggles only the two changed nodes instead of querying the DOM.
+  /** @type {HTMLImageElement[]} */
+  let frameNodes = [];
+  /** @type {HTMLImageElement[]} */
+  let accessoryNodes = [];
+  let activeFrameIdx = 0;
+
   // --- DOM refs ---
   const catContainer = document.getElementById('cat-container');
   const typeCountEl = document.getElementById('type-count');
@@ -66,15 +74,18 @@
   // --- Rendering ---
   function renderCat() {
     catContainer.innerHTML = '';
+    frameNodes = [];
+    accessoryNodes = [];
+    activeFrameIdx = PING_PONG[frameIndex];
 
     // Cat frames
     currentFrameUris.forEach((uri, i) => {
       const img = document.createElement('img');
-      img.className = 'cat-frame' + (i === PING_PONG[frameIndex] ? ' active' : '');
+      img.className = 'cat-frame' + (i === activeFrameIdx ? ' active' : '');
       img.src = uri;
       img.draggable = false;
-      img.dataset.frameIndex = String(i);
       catContainer.appendChild(img);
+      frameNodes[i] = img;
     });
 
     // Accessory frames (only the equipped one, one <img> per frame)
@@ -85,23 +96,24 @@
         acs.frameUris.forEach((uri, i) => {
           const img = document.createElement('img');
           img.className =
-            'accessory-frame' + (i === PING_PONG[frameIndex] ? ' active' : '');
+            'accessory-frame' + (i === activeFrameIdx ? ' active' : '');
           img.src = uri;
           img.draggable = false;
-          img.dataset.frameIndex = String(i);
-          img.dataset.accessoryId = equippedId;
           catContainer.appendChild(img);
+          accessoryNodes[i] = img;
         });
       }
     }
   }
 
   function showFrame(index) {
-    const nodes = catContainer.querySelectorAll('.cat-frame, .accessory-frame');
-    nodes.forEach((el) => {
-      const i = Number(el.dataset.frameIndex);
-      el.classList.toggle('active', i === index);
-    });
+    if (index !== activeFrameIdx) {
+      frameNodes[activeFrameIdx]?.classList.remove('active');
+      accessoryNodes[activeFrameIdx]?.classList.remove('active');
+    }
+    frameNodes[index]?.classList.add('active');
+    accessoryNodes[index]?.classList.add('active');
+    activeFrameIdx = index;
   }
 
   function advanceFrame() {

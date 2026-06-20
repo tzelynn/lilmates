@@ -29,6 +29,13 @@ export function activate(context: vscode.ExtensionContext) {
       if (event.contentChanges.length === 0) {
         return;
       }
+      // Only count real editor buffers. Ignore output channels, the debug
+      // console, SCM input, and log documents so they don't earn gacha
+      // currency or animate the cat with no human typing.
+      const scheme = event.document.uri.scheme;
+      if (scheme !== 'file' && scheme !== 'untitled') {
+        return;
+      }
       // Each text change event = 1 type count (paste/AI counts as just 1)
       stateManager.incrementTypeCount(1);
       catViewProvider.advanceFrame();

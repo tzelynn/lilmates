@@ -12,6 +12,12 @@ export class CatViewProvider implements vscode.WebviewViewProvider {
   private stateManager: StateManager;
   private gachaSystem: GachaSystem;
 
+  // Coalesce the type-count display update so fast typing doesn't post a
+  // message per keystroke. The underlying count in StateManager stays exact;
+  // only the displayed number is throttled.
+  private static readonly TYPE_COUNT_THROTTLE_MS = 250;
+  private typeCountTimer?: ReturnType<typeof setTimeout>;
+
   constructor(
     extensionUri: vscode.Uri,
     catalogue: CatAsset[],
@@ -76,6 +82,9 @@ export class CatViewProvider implements vscode.WebviewViewProvider {
             );
           }
         }
+        // The reward message carries the authoritative count, so any pending
+        // throttled display update is redundant — cancel it.
+        this.cancelTypeCountUpdate();
         this.view?.webview.postMessage({
           type: 'gacha-result',
           item,
@@ -86,10 +95,32 @@ export class CatViewProvider implements vscode.WebviewViewProvider {
         return;
       }
     }
-    this.view?.webview.postMessage({
-      type: 'update-type-count',
-      typeCount: this.stateManager.getTypeCount(),
-    });
+    this.scheduleTypeCountUpdate();
+  }
+
+  /**
+   * Post the current type count to the webview at most once per
+   * TYPE_COUNT_THROTTLE_MS. The displayed number may lag during a burst but is
+   * always corrected when typing pauses (the timer fires) or on a reward.
+   */
+  private scheduleTypeCountUpdate(): void {
+    if (this.typeCountTimer) {
+      return;
+    }
+    this.typeCountTimer = setTimeout(() => {
+      this.typeCountTimer = undefined;
+      this.view?.webview.postMessage({
+        type: 'update-type-count',
+        typeCount: this.stateManager.getTypeCount(),
+      });
+    }, CatViewProvider.TYPE_COUNT_THROTTLE_MS);
+  }
+
+  private cancelTypeCountUpdate(): void {
+    if (this.typeCountTimer) {
+      clearTimeout(this.typeCountTimer);
+      this.typeCountTimer = undefined;
+    }
   }
 
   private handleMessage(message: { type: string; [key: string]: unknown }): void {
@@ -121,6 +152,9 @@ export class CatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private sendInit(): void {
+    // The init message carries the authoritative count; drop any pending
+    // throttled display update so it can't arrive stale afterwards.
+    this.cancelTypeCountUpdate();
     const state = this.stateManager.getState();
     const activeCat = this.catalogue.find((c) => c.id === state.activeCat);
 

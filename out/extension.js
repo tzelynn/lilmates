@@ -40,7 +40,13 @@ var vscode2 = __toESM(require("vscode"));
 var vscode = __toESM(require("vscode"));
 var fs = __toESM(require("fs"));
 var path = __toESM(require("path"));
-var CatViewProvider = class {
+var CatViewProvider = class _CatViewProvider {
+  static {
+    // Coalesce the type-count display update so fast typing doesn't post a
+    // message per keystroke. The underlying count in StateManager stays exact;
+    // only the displayed number is throttled.
+    this.TYPE_COUNT_THROTTLE_MS = 250;
+  }
   constructor(extensionUri, catalogue, stateManager, gachaSystem) {
     this.extensionUri = extensionUri;
     this.catalogue = catalogue;
@@ -91,6 +97,7 @@ var CatViewProvider = class {
             );
           }
         }
+        this.cancelTypeCountUpdate();
         this.view?.webview.postMessage({
           type: "gacha-result",
           item,
@@ -101,10 +108,30 @@ var CatViewProvider = class {
         return;
       }
     }
-    this.view?.webview.postMessage({
-      type: "update-type-count",
-      typeCount: this.stateManager.getTypeCount()
-    });
+    this.scheduleTypeCountUpdate();
+  }
+  /**
+   * Post the current type count to the webview at most once per
+   * TYPE_COUNT_THROTTLE_MS. The displayed number may lag during a burst but is
+   * always corrected when typing pauses (the timer fires) or on a reward.
+   */
+  scheduleTypeCountUpdate() {
+    if (this.typeCountTimer) {
+      return;
+    }
+    this.typeCountTimer = setTimeout(() => {
+      this.typeCountTimer = void 0;
+      this.view?.webview.postMessage({
+        type: "update-type-count",
+        typeCount: this.stateManager.getTypeCount()
+      });
+    }, _CatViewProvider.TYPE_COUNT_THROTTLE_MS);
+  }
+  cancelTypeCountUpdate() {
+    if (this.typeCountTimer) {
+      clearTimeout(this.typeCountTimer);
+      this.typeCountTimer = void 0;
+    }
   }
   handleMessage(message) {
     switch (message.type) {
@@ -132,6 +159,7 @@ var CatViewProvider = class {
     }
   }
   sendInit() {
+    this.cancelTypeCountUpdate();
     const state = this.stateManager.getState();
     const activeCat = this.catalogue.find((c) => c.id === state.activeCat);
     this.view?.webview.postMessage({
@@ -508,13 +536,16 @@ var GachaSystem = class {
     return pool;
   }
   canPull() {
-    return this.getAvailablePool().length > 0 && this.stateManager.getTypeCount() >= this.stateManager.getNextRewardAt();
+    return this.stateManager.getTypeCount() >= this.stateManager.getNextRewardAt() && this.getAvailablePool().length > 0;
   }
   pull() {
-    if (!this.canPull()) {
+    if (this.stateManager.getTypeCount() < this.stateManager.getNextRewardAt()) {
       return null;
     }
     const pool = this.getAvailablePool();
+    if (pool.length === 0) {
+      return null;
+    }
     const item = pool[Math.floor(Math.random() * pool.length)];
     this.stateManager.advanceNextRewardAt();
     if (item.itemType === "cat") {
@@ -546,6 +577,10 @@ function activate(context) {
   context.subscriptions.push(
     vscode2.workspace.onDidChangeTextDocument((event) => {
       if (event.contentChanges.length === 0) {
+        return;
+      }
+      const scheme = event.document.uri.scheme;
+      if (scheme !== "file" && scheme !== "untitled") {
         return;
       }
       stateManager.incrementTypeCount(1);
